@@ -1,0 +1,191 @@
+close all; clear all; clc;
+%% Assign the parameter values of the Quadcopter Simulink model.
+
+m = 0.15;
+Mc = 0.4;
+l = 0.2;
+g  = 9.81;
+
+%% Linearised Model about a
+
+Ax = [0 0 1 0;0 0 0 1;0 -m*g/Mc 0 0;0 (g*(Mc+m)/(l*Mc)) 0 0];
+Bx = [0;0;1/Mc;-1/(l*Mc)];
+Cx = [1 0 0 0; 0 1 0 0];
+Dx = zeros(4,1);
+
+numberOfStates = size(Ax,1);
+
+%% Equilibrium Point 
+
+x1a_bar = 0;
+x2a_bar = 0;
+x3a_bar = 0;
+x4a_bar = 0;
+
+%% Controllability of the system 
+
+Coa = ctrb(Ax,Bx); % Computing the controlability matrix
+rankCoa = rank(Coa); % Rank of the controlability matrix
+
+    if rankCoa == numberOfStates
+        fprintf('The system is controllable');
+    else 
+        fprintf('The system is not controllable');
+    end
+      
+%% Computing the controller 
+
+closedloopEigenvalues = [-3,-4;-5,-6]; % Closed loop eigenvalues 
+Ka = place(Ax,Bx,closedloopEigenvalues); % Closed loop Controller gain for the linear model
+
+K_SF = Ka; % Controller gain for the nonlinear model
+
+%% Observability of the system
+
+Oba = obsv(Ax,Cx); % Computing the observability matrix
+rankOba = rank(Oba); % Rank of the observability matrix
+
+    if rankOba == numberOfStates
+        fprintf('The system is Observable');
+    else 
+        fprintf('The system is not Observable');
+    end
+%% Observer about Equilibrium Point a
+
+x1_bar = x1a_bar;
+x2_bar = x2a_bar;
+x3_bar = x3a_bar;
+x4_bar = x4a_bar;
+    
+%% Computing the observer 
+
+errorDynamics = [-63,-64;-65,-66]; % Eigenvalues of Error Dynamics
+La = place(Ax',Cx',errorDynamics); % Observer gain for the linear model
+La = La';
+L_NL = La; % Observer gain for the nonlinear model
+
+%% Gains Matrices of the Nonlinear Observer
+
+A_NL = Ax;
+B_NL = Bx;
+C_NL = Cx;
+
+%% Initial Conditions
+
+x10 = 0.2;
+x20 = 20*pi/180;
+
+% Linear Model
+x0a = [x10 - x1a_bar; x20 - x2a_bar;0 - x3a_bar;0 - x4a_bar]; % Initial conditions of the x_tilde 
+% x_tilde(0) = x(0) - x_bar
+
+% Nonlinear Model
+x2ref = x2a_bar;
+
+%% Simulate the linear model.
+sim('CP_ContrSys_Lin_a_n9544798');
+
+%% Simulate the non-linear model.
+sim('CP_ContrSys_NLin_n9544798');
+
+%% Cart Pendulum Animation
+
+% Nonlinear Model
+Cart_Pendulum_Animation(ta,  x1,  x2a + x2a_bar, 0,0)
+ 
+close all
+ 
+% Linear model about a
+Cart_Pendulum_Animation(ta, x1a, x2a + x2a_bar, 0,0)
+ 
+close all
+
+%% Convert radians in to degrees
+
+x2 = 180*x2/pi; % Angle
+x4 = 180*x4/pi; % Angular Velocity
+
+x2hat = 180*x2hat/pi; % Angle
+x4hat = 180*x4hat/pi; % Angular Velocity
+
+x2a = 180*x2a/pi; % Angle
+x4a = 180*x4a/pi; % Angular Velocity
+
+x2ahat = 180*x2ahat/pi; % Angle
+x4ahat = 180*x4ahat/pi; % Angular Velocity
+
+%% Plot the input and the states.
+
+figure('NumberTitle', 'off', 'Name', 'Nonlinear Model and Linear Model about a ');
+title('Design Using Linearisation About EPa')
+subplot(5,1,1)
+plot(t, x1, 'LineWidth', 2)
+hold on
+plot(ta, x1hat, 'g', 'LineWidth', 2)
+hold on
+plot(ta, x1a, 'r--', 'LineWidth', 2)
+hold on
+plot(ta, x1ahat, 'k--', 'LineWidth', 2)
+hold off
+xlabel('Time [s]')
+ylabel('Position[m]')
+title('Cart Position')
+legend('x1 Nonlinear',  'x1 hat Nonlinear', 'x1 Linearised', 'x1 hat Linearised')
+ylim([-0.4 0.4])
+grid on
+subplot(5,1,2)
+plot(t, x2, 'LineWidth', 2)
+hold on
+plot(ta, x2hat, 'g', 'LineWidth', 2)
+hold on
+plot(ta, x2a, 'r--', 'LineWidth', 2)
+hold on
+plot(ta, x2ahat, 'k--', 'LineWidth', 2)
+hold off
+xlabel('Time [s]')
+ylabel('Angle [deg]')
+title('Pendulum Angle')
+legend('x2 Nonlinear',  'x2 hat Nonlinear', 'x2 Linearised', 'x2 hat Linearised')
+ylim([-40 20])
+grid on
+subplot(5,1,3)
+plot(t, x3, 'LineWidth', 2)
+hold on
+plot(ta, x3hat, 'g', 'LineWidth', 2)
+hold on
+plot(ta, x3a, 'r--', 'LineWidth', 2)
+hold on
+plot(ta, x3ahat, 'k--', 'LineWidth', 2)
+hold off
+xlabel('Time [s]')
+ylabel('Velocity [m/s]')
+title('Cart Velocity')
+legend('x3 Nonlinear',  'x3 hat Nonlinear', 'x3 Linearised', 'x3 hat Linearised')
+ylim([-2 6])
+grid on
+subplot(5,1,4)
+plot(t, x4, 'LineWidth', 2)
+hold on
+plot(ta, x4hat, 'g', 'LineWidth', 2)
+hold on
+plot(ta, x4a, 'r--', 'LineWidth', 2)
+hold on
+plot(ta, x4ahat, 'k--', 'LineWidth', 2)
+hold off
+xlabel('Time [s]')
+ylabel('Angular Velocity [deg/s]')
+title('Pendulum Rate')
+legend('x4 Nonlinear',  'x4 hat Nonlinear', 'x4 Linearised', 'x4 hat Linearised')
+ylim([-600 200])
+grid on
+subplot(5,1,5)
+plot(t, F, 'LineWidth', 2)
+hold on
+plot(ta, Fa, 'r--', 'LineWidth', 2)
+hold off
+xlabel('Time [s]')
+ylabel('Control Force [N]')
+title('Control Input Force')
+legend('F Nonlinear', 'F Linearised')
+ylim([-20 20])
+grid on
